@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { motion, useInView } from "framer-motion";
+import { useMemo, useRef, useState } from "react";
 
 // ── 5-pointed star polygon points (viewBox 0 0 100 100) ──
 // outer R=45, inner r=18, starting from top (-90°)
@@ -66,14 +66,12 @@ interface StarProps {
   onClick: (id: number) => void;
 }
 
-interface MiniStar {
+interface MiniDot {
   angle: number;
   dist: number;
   duration: number;
   delay: number;
   pSize: number;
-  initRotate: number;
-  endRotate: number;
 }
 
 export default function Star({
@@ -87,26 +85,27 @@ export default function Star({
   onClick,
 }: StarProps) {
   const [hovered, setHovered] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(containerRef, { margin: "120px" });
 
   // Core visual size in px
   const S = size * 5;
 
-  // Build stable mini-star list
-  const miniStars = useMemo<MiniStar[]>(() => {
-    const count = 10;
+  // Build stable mini-dot list (lightweight circles, not SVGs)
+  const miniDots = useMemo<MiniDot[]>(() => {
+    const count = 6;
     return Array.from({ length: count }, (_, i) => ({
-      angle: (360 / count) * i + (Math.random() * 20 - 10),
+      angle: (360 / count) * i + (Math.random() * 30 - 15),
       dist: S * 1.8 + Math.random() * S * 1.2,
       duration: 1.6 + Math.random() * 1.6,
       delay: Math.random() * 2.8,
-      pSize: 6 + Math.random() * 8,
-      initRotate: Math.random() * 90,
-      endRotate: 180 + Math.random() * 180,
+      pSize: 5 + Math.random() * 6,
     }));
   }, [S]);
 
   return (
     <motion.div
+      ref={containerRef}
       className="absolute z-10"
       style={{
         left: `${x}%`,
@@ -126,8 +125,8 @@ export default function Star({
           left: "50%",
           top: "50%",
           transform: "translate(-50%, -50%)",
-          background: `radial-gradient(circle, rgba(203,48,174,0.18) 0%, rgba(86,52,185,0.1) 50%, transparent 70%)`,
-          filter: "blur(6px)",
+          background: `radial-gradient(circle, rgba(203,48,174,0.22) 0%, rgba(86,52,185,0.12) 50%, transparent 70%)`,
+          // No filter:blur — radial-gradient soft falloff is enough and avoids repaint during zoom
         }}
         animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.65, 0.3] }}
         transition={{ duration: 3.5 + Math.random() * 1.5, repeat: Infinity, delay }}
@@ -142,47 +141,50 @@ export default function Star({
           left: "50%",
           top: "50%",
           transform: "translate(-50%, -50%)",
-          background: `radial-gradient(circle, rgba(203,48,174,0.28) 0%, rgba(86,52,185,0.14) 55%, transparent 75%)`,
-          filter: "blur(4px)",
+          background: `radial-gradient(circle, rgba(203,48,174,0.32) 0%, rgba(86,52,185,0.18) 55%, transparent 75%)`,
+          // No filter:blur — avoids expensive rasterization inside a scaled container
         }}
         animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0.9, 0.5] }}
         transition={{ duration: 2 + Math.random(), repeat: Infinity, delay: delay + 0.4 }}
       />
 
-      {/* ── Mini floating stars ── */}
-      {miniStars.map((ms, i) => {
-        const rad = (ms.angle * Math.PI) / 180;
-        const tx = Math.cos(rad) * ms.dist;
-        const ty = Math.sin(rad) * ms.dist;
+      {/* ── Mini floating dots (CSS circles — lightweight) ── */}
+      {inView && miniDots.map((dot, i) => {
+        const rad = (dot.angle * Math.PI) / 180;
+        const tx = Math.cos(rad) * dot.dist;
+        const ty = Math.sin(rad) * dot.dist;
+        const color = visited ? "#dfcc3d" : "#cb30ae";
+        const glow = visited
+          ? `0 0 ${dot.pSize * 1.5}px rgba(223,204,61,0.85), 0 0 ${dot.pSize * 3}px rgba(223,204,61,0.4)`
+          : `0 0 ${dot.pSize * 1.5}px rgba(203,48,174,0.85), 0 0 ${dot.pSize * 3}px rgba(86,52,185,0.4)`;
         return (
           <motion.div
-            key={`ms-${id}-${i}`}
-            className="absolute pointer-events-none"
+            key={`md-${id}-${i}`}
+            className="absolute pointer-events-none rounded-full"
             style={{
-              width: ms.pSize,
-              height: ms.pSize,
+              width: dot.pSize,
+              height: dot.pSize,
               left: "50%",
               top: "50%",
-              marginLeft: -(ms.pSize / 2),
-              marginTop: -(ms.pSize / 2),
+              marginLeft: -(dot.pSize / 2),
+              marginTop: -(dot.pSize / 2),
+              background: color,
+              boxShadow: glow,
             }}
             animate={{
               x: [0, tx * 0.45, tx],
               y: [0, ty * 0.45, ty],
               opacity: [0, 1, 0],
               scale: [0.3, 1.1, 0.2],
-              rotate: [ms.initRotate, ms.endRotate],
             }}
             transition={{
-              duration: ms.duration,
+              duration: dot.duration,
               repeat: Infinity,
-              delay: ms.delay,
+              delay: dot.delay,
               ease: "easeOut",
-              repeatDelay: 0.2 + Math.random() * 1.0,
+              repeatDelay: 0.3 + Math.random() * 1.0,
             }}
-          >
-            <StarSVG size={ms.pSize} glowBlur={3} visited={visited} />
-          </motion.div>
+          />
         );
       })}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Star from "./components/Star";
 import StarModal from "./components/StarModal";
@@ -204,6 +204,18 @@ export default function Home() {
   // Set of milestone counts that have already been triggered (survives resets via localStorage)
   const triggeredMilestonesRef = useRef<Set<number>>(new Set());
 
+  // Stable particle data — computed once, never causes re-paint churn on re-renders
+  const ambientParticles = useMemo(() =>
+    Array.from({ length: 50 }, () => ({
+      width:  Math.random() * 2 + 1,
+      height: Math.random() * 2 + 1,
+      left:   Math.random() * 100,
+      top:    Math.random() * 100,
+      duration: 3 + Math.random() * 4,
+      delay:    Math.random() * 3,
+    })),
+  []);
+
   /* ── Write target offset directly to the DOM (called from rAF) ── */
   const applyTransform = useCallback(() => {
     rafRef.current = null;
@@ -382,7 +394,8 @@ export default function Home() {
             } catch {}
             shouldTriggerConfluence = true;
             triggeredMilestone = milestone;
-            positions = [...next].map((sid) => {
+            // Only use the last 4 visited stars — fewer DOM nodes, much cheaper animation
+            positions = [...next].slice(-4).map((sid) => {
               const s = STARS.find((st) => st.id === sid)!;
               return {
                 x: (s.x / 100) * worldSizeRef.current.w + targetOffsetRef.current.x,
@@ -405,7 +418,8 @@ export default function Home() {
       if (shouldTriggerConfluence) {
         setConfluenceMilestone(triggeredMilestone);
         setConfluencePositions(positions);
-        setConfluenceActive(true);
+        // Wait for zoom-out animation (0.6s) to fully finish before mounting overlay
+        setTimeout(() => setConfluenceActive(true), 300);
       }
     }, 450);
   }, [activeStar]);
@@ -514,26 +528,22 @@ export default function Home() {
             }}
           />
 
-          {/* Ambient particles */}
+          {/* Ambient particles — CSS animation, compositor thread only, zero JS per frame */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{ zIndex: 1 }}
           >
-            {Array.from({ length: 50 }).map((_, i) => (
-              <motion.div
+            {ambientParticles.map((p, i) => (
+              <div
                 key={`particle-${i}`}
                 className="absolute rounded-full bg-white/30"
                 style={{
-                  width: Math.random() * 2 + 1,
-                  height: Math.random() * 2 + 1,
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                }}
-                animate={{ opacity: [0.1, 0.5, 0.1] }}
-                transition={{
-                  duration: 3 + Math.random() * 4,
-                  repeat: Infinity,
-                  delay: Math.random() * 3,
+                  width:  p.width,
+                  height: p.height,
+                  left:   `${p.left}%`,
+                  top:    `${p.top}%`,
+                  animation: `ambient-particle ${p.duration}s ease-in-out infinite`,
+                  animationDelay: `${p.delay}s`,
                 }}
               />
             ))}

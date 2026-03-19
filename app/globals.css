@@ -50,6 +50,12 @@ html, body {
   50% { opacity: 1; }
 }
 
+/* Ambient background particles — runs on compositor thread, zero JS */
+@keyframes ambient-particle {
+  0%, 100% { opacity: 0.1; }
+  50%       { opacity: 0.5; }
+}
+
 /* Scrollbar hidden */
 ::-webkit-scrollbar { display: none; }
 * { scrollbar-width: none; }
