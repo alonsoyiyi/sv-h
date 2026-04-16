@@ -71,6 +71,7 @@ interface MiniDot {
   dist: number;
   duration: number;
   delay: number;
+  repeatDelay: number;
   pSize: number;
 }
 
@@ -91,6 +92,11 @@ export default function Star({
   // Core visual size in px
   const S = size * 5;
 
+  // Stable random durations — computed once per mount, never cause spurious animation restarts on re-render
+  const outerGlowDuration  = useMemo(() => 3.5 + Math.random() * 1.5, []);
+  const innerGlowDuration  = useMemo(() => 2   + Math.random(),        []);
+  const buttonIdleDuration = useMemo(() => 2.6 + Math.random() * 1.2,  []);
+
   // Build stable mini-dot list (lightweight circles, not SVGs)
   const miniDots = useMemo<MiniDot[]>(() => {
     const count = 6;
@@ -99,6 +105,7 @@ export default function Star({
       dist: S * 1.8 + Math.random() * S * 1.2,
       duration: 1.6 + Math.random() * 1.6,
       delay: Math.random() * 2.8,
+      repeatDelay: 0.3 + Math.random() * 1.0,
       pSize: 5 + Math.random() * 6,
     }));
   }, [S]);
@@ -129,7 +136,7 @@ export default function Star({
           // No filter:blur — radial-gradient soft falloff is enough and avoids repaint during zoom
         }}
         animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.65, 0.3] }}
-        transition={{ duration: 3.5 + Math.random() * 1.5, repeat: Infinity, delay }}
+        transition={{ duration: outerGlowDuration, repeat: Infinity, delay }}
       />
 
       {/* ── Inner glow halo ── */}
@@ -145,7 +152,7 @@ export default function Star({
           // No filter:blur — avoids expensive rasterization inside a scaled container
         }}
         animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0.9, 0.5] }}
-        transition={{ duration: 2 + Math.random(), repeat: Infinity, delay: delay + 0.4 }}
+        transition={{ duration: innerGlowDuration, repeat: Infinity, delay: delay + 0.4 }}
       />
 
       {/* ── Mini floating dots (CSS circles — lightweight) ── */}
@@ -182,7 +189,7 @@ export default function Star({
               repeat: Infinity,
               delay: dot.delay,
               ease: "easeOut",
-              repeatDelay: 0.3 + Math.random() * 1.0,
+              repeatDelay: dot.repeatDelay,
             }}
           />
         );
@@ -203,7 +210,7 @@ export default function Star({
           rotate: hovered ? [0, 5, -5, 0] : [0, 3, -3, 0],
         }}
         transition={{
-          duration: hovered ? 1.2 : 2.6 + Math.random() * 1.2,
+          duration: hovered ? 1.2 : buttonIdleDuration,
           repeat: Infinity,
           ease: "easeInOut",
         }}

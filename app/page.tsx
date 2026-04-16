@@ -38,7 +38,7 @@ const STARS: StarData[] = [
     y: 8,
     label: "Tu sonrisa",
     text: "Cada vez que sonríes, las estrellas se ponen celosas. Eres la luz más hermosa de mi galaxia.",
-    image: "/photos/2.jpg",
+    image: "/photos/1.jpg",
     size: 5,
   },
   {
@@ -47,7 +47,7 @@ const STARS: StarData[] = [
     y: 20,
     label: "Nuestras aventuras",
     text: "Cada momento juntos es una aventura que atesoro en mi corazón. Contigo, hasta lo simple se vuelve mágico.",
-    image: "/photos/3.jpg",
+    image: "/photos/1.jpg",
     size: 8,
   },
   {
@@ -56,7 +56,7 @@ const STARS: StarData[] = [
     y: 12,
     label: "Tu risa",
     text: "Tu risa es mi melodía favorita. Podría escucharla por toda la eternidad y nunca me cansaría.",
-    image: "/photos/4.jpg",
+    image: "/photos/1.jpg",
     size: 6,
   },
   {
@@ -65,7 +65,7 @@ const STARS: StarData[] = [
     y: 42,
     label: "Nuestros abrazos",
     text: "En tus brazos encontré mi hogar. No necesito nada más en este universo que tu calidez.",
-    image: "/photos/5.jpg",
+    image: "/photos/1.jpg",
     size: 7,
   },
   {
@@ -74,7 +74,7 @@ const STARS: StarData[] = [
     y: 48,
     label: "Te amo",
     text: "Tres palabras que se quedan cortas para expresar todo lo que siento por ti. Eres mi todo, mi universo entero.",
-    image: "/photos/6.jpg",
+    image: "/photos/1.jpg",
     size: 9,
   },
   {
@@ -83,7 +83,7 @@ const STARS: StarData[] = [
     y: 40,
     label: "Nuestros sueños",
     text: "Sueño con un futuro donde cada mañana despierte a tu lado. Tú eres mi sueño más bonito hecho realidad.",
-    image: "/photos/7.jpg",
+    image: "/photos/1.jpg",
     size: 6,
   },
   {
@@ -92,7 +92,7 @@ const STARS: StarData[] = [
     y: 70,
     label: "Tu mirada",
     text: "Tus ojos son dos galaxias en las que me pierdo. Cada vez que me miras, siento que todo tiene sentido.",
-    image: "/photos/8.jpg",
+    image: "/photos/1.jpg",
     size: 5,
   },
   {
@@ -101,7 +101,7 @@ const STARS: StarData[] = [
     y: 78,
     label: "Nuestras noches",
     text: "Las noches contigo bajo las estrellas son los momentos más perfectos que he vivido.",
-    image: "/photos/9.jpg",
+    image: "/photos/1.jpg",
     size: 7,
   },
   {
@@ -110,7 +110,7 @@ const STARS: StarData[] = [
     y: 72,
     label: "Tu voz",
     text: "Tu voz es como una canción de cuna que calma mi alma. Eres la paz que siempre busqué.",
-    image: "/photos/10.jpg",
+    image: "/photos/1.jpg",
     size: 6,
   },
   {
@@ -119,7 +119,7 @@ const STARS: StarData[] = [
     y: 80,
     label: "Nuestras promesas",
     text: "Te prometo amarte en cada vida, en cada universo, en cada estrella. Siempre serás tú.",
-    image: "/photos/11.jpg",
+    image: "/photos/1.jpg",
     size: 8,
   },
   {
@@ -128,7 +128,7 @@ const STARS: StarData[] = [
     y: 55,
     label: "Para siempre",
     text: "Si pudiera elegir a alguien una y otra vez, siempre te elegiría a ti. Eres mi eternidad.",
-    image: "/photos/12.jpg",
+    image: "/photos/1.jpg",
     size: 7,
   },
 ];
@@ -201,6 +201,7 @@ export default function Home() {
   const [confluenceActive, setConfluenceActive] = useState(false);
   const [confluencePositions, setConfluencePositions] = useState<StarPosition[]>([]);
   const [confluenceMilestone, setConfluenceMilestone] = useState<4 | 8 | 12>(4);
+  const [zoomTranslatePx, setZoomTranslatePx] = useState({ x: 0, y: 0 });
   // Set of milestone counts that have already been triggered (survives resets via localStorage)
   const triggeredMilestonesRef = useRef<Set<number>>(new Set());
 
@@ -363,8 +364,26 @@ export default function Home() {
   const handleStarClick = useCallback((id: number) => {
     const star = STARS.find((s) => s.id === id);
     if (!star) return;
+
+    // Convert zoom translation from % to px — Framer Motion resolves % on the main thread
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    setZoomTranslatePx({
+      x: ((50 - star.x) / 100) * vw,
+      y: ((50 - star.y) / 100) * vh,
+    });
+
     setZoomOrigin({ x: star.x, y: star.y });
     setActiveStar(star);
+
+    // Snap the parallax world to its current position and kill its CSS transition
+    // so it doesn’t fight the zoom animation running on the compositor
+    if (worldRef.current) {
+      const { x, y } = targetOffsetRef.current;
+      worldRef.current.style.transition = "none";
+      worldRef.current.style.transform = `translate(${x}px, ${y}px)`;
+    }
+
     isZoomingRef.current = true;
     setIsZooming(true);
     setTimeout(() => {
@@ -415,6 +434,10 @@ export default function Home() {
       isZoomingRef.current = false;
       setIsZooming(false);
       setActiveStar(null);
+      // Restore parallax CSS transition now that the zoom-out animation has finished
+      if (worldRef.current) {
+        worldRef.current.style.transition = "transform 0.75s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+      }
       if (shouldTriggerConfluence) {
         setConfluenceMilestone(triggeredMilestone);
         setConfluencePositions(positions);
@@ -460,10 +483,10 @@ export default function Home() {
           isZooming
             ? {
                 scale: 2.5,
-                x: `${50 - zoomOrigin.x}%`,
-                y: `${50 - zoomOrigin.y}%`,
+                x: zoomTranslatePx.x,
+                y: zoomTranslatePx.y,
               }
-            : { scale: 1, x: "0%", y: "0%" }
+            : { scale: 1, x: 0, y: 0 }
         }
         transition={{
           duration: isZooming ? 0.7 : 0.6,
@@ -577,6 +600,36 @@ export default function Home() {
           zIndex: 10,
         }}
       />
+
+      {/* Edge mask — hides the hard rectangular boundary of the parallax world
+          when a star near the edges is zoomed. Lives outside the zoom container
+          so it stays fixed in viewport space and doesn't scale with the zoom.
+
+          The gradient stops are computed dynamically: for a zoom at (x%, y%) with
+          scale 2.5, the world's top edge appears at viewport fraction:
+            top_exposure  = 0.5 − (y/100) × 2.5
+            bottom_exposure = (y/100) × 2.5 − 1.5
+          We add 7pp of safety margin and clamp to a sane minimum. */}
+      {(() => {
+        const topPct    = Math.max(14, Math.round((0.5  - (zoomOrigin.y / 100) * 2.5) * 100) + 7);
+        const bottomPct = Math.max(14, Math.round(((zoomOrigin.y / 100) * 2.5 - 1.5) * 100) + 7);
+        const leftPct   = Math.max(10, Math.round((0.5  - (zoomOrigin.x / 100) * 2.5) * 100) + 7);
+        const rightPct  = Math.max(10, Math.round(((zoomOrigin.x / 100) * 2.5 - 1.5) * 100) + 7);
+        return (
+          <motion.div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `
+                linear-gradient(to bottom, rgba(0,0,0,1) 0%, transparent ${topPct}%, transparent ${100 - bottomPct}%, rgba(0,0,0,1) 100%),
+                linear-gradient(to right,  rgba(0,0,0,1) 0%, transparent ${leftPct}%, transparent ${100 - rightPct}%, rgba(0,0,0,1) 100%)
+              `,
+              zIndex: 11,
+            }}
+            animate={{ opacity: isZooming ? 1 : 0 }}
+            transition={{ duration: isZooming ? 0.15 : 0.55, ease: "easeInOut" }}
+          />
+        );
+      })()}
 
       {/* Hint text */}
       <AnimatePresence>
